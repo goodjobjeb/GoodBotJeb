@@ -2,11 +2,13 @@ import os
 import asyncio
 from yt_dlp import YoutubeDL
 from config import LOCAL_MP3_FOLDER
+import logging
 from utils.time import parse_timestamp, validate_timestamp_format
 
 class DownloadManager:
     async def download(self, ctx, url, timestamp=None, filename=None):
         try:
+            os.makedirs(LOCAL_MP3_FOLDER, exist_ok=True)
             options = {
                 'format': 'bestaudio/best',
                 'outtmpl': os.path.join(LOCAL_MP3_FOLDER, filename or '%(id)s.%(ext)s'),
@@ -33,4 +35,5 @@ class DownloadManager:
 
             await ctx.send(f"Downloaded: {info.get('title', 'Unknown')}")
         except Exception as e:
+            logging.error("Download failed: %s", e)
             await ctx.send(f"Download failed: {str(e)}")

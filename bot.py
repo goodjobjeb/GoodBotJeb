@@ -2,11 +2,16 @@ import discord
 from discord.ext import commands
 import logging
 import asyncio
-from config import TOKEN, COMMAND_PREFIX
+import os
+from config import TOKEN, COMMAND_PREFIX, LOCAL_MP3_FOLDER
 from utils.format_fallback import auto_update_yt_dlp
 
 # Auto-update yt-dlp at startup
 auto_update_yt_dlp()
+
+# Configure logging to output to the terminal
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
 
 # Configure logging
 #logging.basicConfig(level=logging.DEBUG)  # Set to DEBUG to capture all logs
@@ -36,21 +41,24 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
 
+# Ensure the local file folder exists for playback and downloads
+os.makedirs(LOCAL_MP3_FOLDER, exist_ok=True)
+
 @bot.event
 async def on_ready():
-    print(f"{bot.user.name} has connected to Discord!")
+    logging.info("%s has connected to Discord!", bot.user.name)
     # Optionally, list out the available commands
     for command in bot.commands:
-        print(f"Command: {command.name}")
+        logging.debug("Command available: %s", command.name)
 
 @bot.event
 async def on_error(event, *args, **kwargs):
     """
     Custom error handler to catch errors and attempt reconnection.
     """
-    print(f"An error occurred: {event}, {args}, {kwargs}")
+    logging.error("An error occurred: %s, %s, %s", event, args, kwargs)
     if isinstance(event, discord.errors.ConnectionClosed):
-        print("Connection closed, attempting to reconnect...")
+        logging.info("Connection closed, attempting to reconnect...")
         await bot.close()
         await bot.start(TOKEN)  # Reconnect to Discord
 
@@ -66,12 +74,12 @@ async def main():
     async with bot:
         # Attempt to load extensions
         for ext in INITIAL_EXTENSIONS:
-            print(f"Loading extension: {ext}")
+            logging.info("Loading extension: %s", ext)
             try:
                 await bot.load_extension(ext)
-                print(f"Successfully loaded: {ext}")
+                logging.info("Successfully loaded: %s", ext)
             except Exception as e:
-                print(f"Failed to load extension {ext}: {e}")
+                logging.error("Failed to load extension %s: %s", ext, e)
 
         await bot.start(TOKEN)
 
@@ -80,5 +88,5 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except discord.errors.ConnectionClosed as e:
-        print(f"Connection closed: {e}, attempting to reconnect...")
+        logging.error("Connection closed: %s, attempting to reconnect...", e)
         asyncio.run(main())

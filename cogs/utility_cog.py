@@ -35,6 +35,10 @@ class UtilityCog(commands.Cog):
 
     @commands.command(aliases=ALIASES['listfiles'])
     async def listfiles(self, ctx):
+        if not os.path.isdir(LOCAL_MP3_FOLDER):
+            await ctx.send("Local MP3 folder does not exist.")
+            return
+
         files = [f for f in os.listdir(LOCAL_MP3_FOLDER) if f.endswith('.mp3')]
         if files:
             await ctx.send("📂 Local MP3 files:\n" + "\n".join(files[:25]))
