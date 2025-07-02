@@ -3,8 +3,9 @@ from discord.ext import commands
 import logging
 import asyncio
 import os
-from config import TOKEN, COMMAND_PREFIX, LOCAL_MP3_FOLDER
+from config import TOKEN, COMMAND_PREFIX, LOCAL_MP3_FOLDER, ELEVEN_VOICES
 from utils.format_fallback import auto_update_yt_dlp
+from utils.tts import tts_to_pcm
 
 # Auto-update yt-dlp at startup
 auto_update_yt_dlp()
@@ -61,6 +62,24 @@ async def on_error(event, *args, **kwargs):
         logging.info("Connection closed, attempting to reconnect...")
         await bot.close()
         await bot.start(TOKEN)  # Reconnect to Discord
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        return
+
+    if message.content.startswith(COMMAND_PREFIX):
+        parts = message.content[len(COMMAND_PREFIX):].split(maxsplit=1)
+        if parts:
+            voice_name = parts[0].lower()
+            text = parts[1] if len(parts) > 1 else None
+            if voice_name in ELEVEN_VOICES and text:
+                tts_cog = bot.get_cog("TTSCog")
+                if tts_cog:
+                    await tts_cog.play_tts(message, voice_name, text)
+                return
+
+    await bot.process_commands(message)
 
 # Load cogs asynchronously
 INITIAL_EXTENSIONS = [
