@@ -26,14 +26,14 @@ class MusicCog(commands.Cog):
         
         channel = ctx.author.voice.channel
 
-        # Reconnect if our stored voice client is missing or stale
-        if self.voice_client is None or not self.voice_client.is_connected():
-            if self.voice_client is not None:
-                try:
-                    await self.voice_client.disconnect()
-                except Exception as e:
-                    self.logger.warning("Error disconnecting stale voice client: %s", e)
-
+        # Use the guild's existing voice client if present
+        if ctx.voice_client:
+            self.voice_client = ctx.voice_client
+            # Move to the user's channel if we're connected elsewhere
+            if self.voice_client.channel != channel:
+                await self.voice_client.move_to(channel)
+        else:
+            # No active connection, so connect
             self.voice_client = await channel.connect()
 
         # Get audio from YouTube or local file
@@ -120,18 +120,22 @@ class MusicCog(commands.Cog):
 
     @commands.command(aliases=ALIASES['skip'])
     async def skip(self, ctx):
-        if self.voice_client and self.voice_client.is_playing():
-            self.voice_client.stop()
+        vc = ctx.voice_client or self.voice_client
+        if vc and vc.is_playing():
+            vc.stop()
             await ctx.send("⏭️ Skipped.")
         else:
             await ctx.send("Nothing is playing.")
 
     @commands.command()
     async def stop(self, ctx):
-        if self.voice_client:
-            self.voice_client.stop()
-            await self.voice_client.disconnect()
+        vc = ctx.voice_client or self.voice_client
+        if vc:
+            if vc.is_playing():
+                vc.stop()
+            await vc.disconnect()
             await ctx.send("Music stopped and disconnected.")
+            self.voice_client = None
         else:
             await ctx.send("I'm not playing any music right now.")
 
