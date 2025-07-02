@@ -2,14 +2,21 @@ import discord
 from discord.ext import commands
 import yt_dlp
 import os
+from config import LOCAL_MP3_FOLDER, FFMPEG_LOCAL_OPTIONS, LOCAL_FILE_VOLUME
+from utils.audio import find_matching_audio
+
+ALIASES = {
+    'play': ['p'],
+    'skip': ['s']
+}
 
 class MusicCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.voice_client = None
 
-    @commands.command()
-    async def play(self, ctx, url):
+    @commands.command(aliases=ALIASES['play'])
+    async def play(self, ctx, *, query: str):
         # Ensure the user is connected to a voice channel
         if not ctx.author.voice:
             await ctx.send("You must join a voice channel first.")
@@ -20,22 +27,43 @@ class MusicCog(commands.Cog):
             self.voice_client = await channel.connect()
 
         # Get audio from YouTube or local file
-        audio_source = await self.get_audio_source(url)
+        audio_source = await self.get_audio_source(query)
         if audio_source:
             self.voice_client.play(audio_source, after=lambda e: print(f"Finished playing: {e}"))
-            await ctx.send(f"Now playing: {url}")
+            await ctx.send(f"Now playing: {query}")
         else:
             await ctx.send("Failed to load the audio source.")
 
-    async def get_audio_source(self, url):
-        if url.startswith("http"):  # Handle YouTube URL
-            return await self.get_youtube_audio_source(url)
-        
-        if os.path.isfile(url):  # Handle local files
-            abs_path = os.path.abspath(url)
-            return discord.FFmpegPCMAudio(abs_path)
+    async def get_audio_source(self, query):
+        if query.startswith("http"):
+            return await self.get_youtube_audio_source(query)
 
-        return None  # Invalid URL or file
+        # Direct file path provided
+        if os.path.isfile(query):
+            abs_path = os.path.abspath(query)
+            return discord.PCMVolumeTransformer(
+                discord.FFmpegPCMAudio(abs_path, **FFMPEG_LOCAL_OPTIONS),
+                volume=LOCAL_FILE_VOLUME,
+            )
+
+        # Try relative to configured folder
+        candidate = os.path.join(LOCAL_MP3_FOLDER, query)
+        if os.path.isfile(candidate):
+            abs_path = os.path.abspath(candidate)
+            return discord.PCMVolumeTransformer(
+                discord.FFmpegPCMAudio(abs_path, **FFMPEG_LOCAL_OPTIONS),
+                volume=LOCAL_FILE_VOLUME,
+            )
+
+        # Search the folder tree for a matching file
+        matched = find_matching_audio(query)
+        if matched:
+            return discord.PCMVolumeTransformer(
+                discord.FFmpegPCMAudio(matched, **FFMPEG_LOCAL_OPTIONS),
+                volume=LOCAL_FILE_VOLUME,
+            )
+
+        return None
 
     async def get_youtube_audio_source(self, url):
         # Ensure the downloads directory exists
@@ -71,6 +99,14 @@ class MusicCog(commands.Cog):
             except Exception as e:
                 print(f"Error extracting YouTube audio: {e}")
                 return None
+
+    @commands.command(aliases=ALIASES['skip'])
+    async def skip(self, ctx):
+        if self.voice_client and self.voice_client.is_playing():
+            self.voice_client.stop()
+            await ctx.send("⏭️ Skipped.")
+        else:
+            await ctx.send("Nothing is playing.")
 
     @commands.command()
     async def stop(self, ctx):
