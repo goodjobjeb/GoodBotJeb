@@ -25,7 +25,15 @@ class MusicCog(commands.Cog):
             return
         
         channel = ctx.author.voice.channel
-        if self.voice_client is None:
+
+        # Reconnect if our stored voice client is missing or stale
+        if self.voice_client is None or not self.voice_client.is_connected():
+            if self.voice_client is not None:
+                try:
+                    await self.voice_client.disconnect()
+                except Exception as e:
+                    self.logger.warning("Error disconnecting stale voice client: %s", e)
+
             self.voice_client = await channel.connect()
 
         # Get audio from YouTube or local file
