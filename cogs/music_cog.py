@@ -2,6 +2,7 @@ import discord
 from discord.ext import commands
 import yt_dlp
 import os
+import logging
 from config import LOCAL_MP3_FOLDER, FFMPEG_LOCAL_OPTIONS, LOCAL_FILE_VOLUME
 from utils.audio import find_matching_audio
 
@@ -14,6 +15,7 @@ class MusicCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.voice_client = None
+        self.logger = logging.getLogger(__name__)
 
     @commands.command(aliases=ALIASES['play'])
     async def play(self, ctx, *, query: str):
@@ -29,8 +31,15 @@ class MusicCog(commands.Cog):
         # Get audio from YouTube or local file
         audio_source = await self.get_audio_source(query)
         if audio_source:
-            self.voice_client.play(audio_source, after=lambda e: print(f"Finished playing: {e}"))
-            await ctx.send(f"Now playing: {query}")
+            try:
+                self.voice_client.play(
+                    audio_source,
+                    after=lambda e: self.logger.error("Playback error: %s", e) if e else None
+                )
+                await ctx.send(f"Now playing: {query}")
+            except Exception as e:
+                self.logger.error("Failed to play audio: %s", e)
+                await ctx.send("❌ Error during playback. Check logs for details.")
         else:
             await ctx.send("Failed to load the audio source.")
 
@@ -63,6 +72,7 @@ class MusicCog(commands.Cog):
                 volume=LOCAL_FILE_VOLUME,
             )
 
+        self.logger.warning("No local audio found for query: %s", query)
         return None
 
     async def get_youtube_audio_source(self, url):
@@ -94,10 +104,10 @@ class MusicCog(commands.Cog):
                 if os.path.exists(mp3_filename):
                     return discord.FFmpegPCMAudio(mp3_filename)
                 else:
-                    print(f"Failed to download or convert the audio file from YouTube.")
+                    self.logger.error("Failed to download or convert the audio file from YouTube.")
                     return None
             except Exception as e:
-                print(f"Error extracting YouTube audio: {e}")
+                self.logger.error("Error extracting YouTube audio: %s", e)
                 return None
 
     @commands.command(aliases=ALIASES['skip'])

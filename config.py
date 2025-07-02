@@ -14,7 +14,7 @@ FFMPEG_OPTIONS = {
 }
 
 FFMPEG_LOCAL_OPTIONS = {
-    "before_options": "-loglevel panic",
+    "before_options": "-loglevel warning",
     "options": "-vn"
 }
 
