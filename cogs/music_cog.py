@@ -38,6 +38,9 @@ class MusicCog(commands.Cog):
         return None  # Invalid URL or file
 
     async def get_youtube_audio_source(self, url):
+        # Ensure the downloads directory exists
+        os.makedirs('downloads', exist_ok=True)
+
         # Setup yt-dlp options
         ydl_opts = {
             'format': 'bestaudio/best',
@@ -57,7 +60,8 @@ class MusicCog(commands.Cog):
             try:
                 info = ydl.extract_info(url, download=True)
                 filename = ydl.prepare_filename(info)
-                mp3_filename = filename.replace('.webm', '.mp3')
+                base, _ = os.path.splitext(filename)
+                mp3_filename = base + '.mp3'
 
                 if os.path.exists(mp3_filename):
                     return discord.FFmpegPCMAudio(mp3_filename)
