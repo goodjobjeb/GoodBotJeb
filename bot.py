@@ -14,26 +14,6 @@ auto_update_yt_dlp()
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s - %(levelname)s - %(name)s - %(message)s")
 
-# Configure logging
-#logging.basicConfig(level=logging.DEBUG)  # Set to DEBUG to capture all logs
-#logger = logging.getLogger("discord")
-#logger.setLevel(logging.DEBUG)  # Set to DEBUG to capture all logs
-
-# Create a console handler to log to the console
-#console_handler = logging.StreamHandler()
-#console_handler.setLevel(logging.DEBUG)  # Log to console at DEBUG level
-#formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-#console_handler.setFormatter(formatter)
-
-# Add the console handler to the logger
-#logger.addHandler(console_handler)
-
-# Optionally, create a file handler to log to a file (if you want to save logs for later)
-#file_handler = logging.FileHandler('bot_debug.log')  # Logs to 'bot_debug.log'
-#file_handler.setLevel(logging.DEBUG)  # Log to file at DEBUG level
-#file_handler.setFormatter(formatter)
-#logger.addHandler(file_handler)
-
 intents = discord.Intents.default()
 intents.message_content = True
 intents.guilds = True
