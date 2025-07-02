@@ -1,6 +1,6 @@
 # Discord & API tokens
-TOKEN = "DISCORD_BOT_TOKEN_HERE"
-ELEVEN_API_KEY = "ELEVEN_API_KEY_HERE"
+TOKEN = "DISCORD_BOT_TOKEN"
+ELEVEN_API_KEY = "EVELENLABS_API_KEY"
 OPEN_DOTA_URL = "https://api.opendota.com/api"
 
 COMMAND_PREFIX = "-"
@@ -34,5 +34,5 @@ ELEVEN_VOICES = {
 
 # Discord-to-Steam ID mapping
 STEAM_LINKS = {
-    "DiscordIDhere": "SteamIDhere"   # Discord ID : Steam ID
+    "discord_id": "steam_id"   # Discord ID : Steam ID
 }
