@@ -88,7 +88,7 @@ class MusicCog(commands.Cog):
             'quiet': False,  # Disable quiet mode
             'logtostderr': True,  # Enable logging
             'postprocessors': [{
-                'key': 'FFmpegAudioConvertor',
+                'key': 'FFmpegExtractAudio',
                 'preferredcodec': 'mp3',
                 'preferredquality': '192',
             }]

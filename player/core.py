@@ -27,7 +27,7 @@ class MusicPlayer:
                 'outtmpl': 'downloads/%(id)s.%(ext)s',
                 'quiet': True,
                 'postprocessors': [{
-                    'key': 'FFmpegAudioConvertor',
+                    'key': 'FFmpegExtractAudio',
                     'preferredcodec': 'mp3',
                     'preferredquality': '192',
                 }],
