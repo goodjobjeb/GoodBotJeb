@@ -20,8 +20,16 @@ FFMPEG_LOCAL_OPTIONS = {
 
 # Volume settings
 MAX_VOLUME = 1.0
-DEFAULT_VOLUME = 0.5
-LOCAL_FILE_VOLUME = 0.5
+
+# Default volumes for different audio sources. These values can be
+# adjusted at runtime via bot commands.
+YOUTUBE_VOLUME = 0.5
+LOCAL_MP3_VOLUME = 0.5
+TTS_VOLUME = 0.5
+
+# Backwards compatibility for modules that still import these names
+DEFAULT_VOLUME = YOUTUBE_VOLUME
+LOCAL_FILE_VOLUME = LOCAL_MP3_VOLUME
 
 # Voice map for ElevenLabs (command name -> voice ID)
 ELEVEN_VOICES = {
