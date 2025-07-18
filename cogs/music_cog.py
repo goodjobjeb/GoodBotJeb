@@ -3,7 +3,12 @@ from discord.ext import commands
 import yt_dlp
 import os
 import logging
-from config import LOCAL_MP3_FOLDER, FFMPEG_LOCAL_OPTIONS, LOCAL_FILE_VOLUME
+from config import (
+    LOCAL_MP3_FOLDER,
+    FFMPEG_LOCAL_OPTIONS,
+    LOCAL_MP3_VOLUME,
+    YOUTUBE_VOLUME,
+)
 from utils.audio import find_matching_audio
 
 ALIASES = {
@@ -60,7 +65,7 @@ class MusicCog(commands.Cog):
             abs_path = os.path.abspath(query)
             return discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(abs_path, **FFMPEG_LOCAL_OPTIONS),
-                volume=LOCAL_FILE_VOLUME,
+                volume=LOCAL_MP3_VOLUME,
             )
 
         # Try relative to configured folder
@@ -69,7 +74,7 @@ class MusicCog(commands.Cog):
             abs_path = os.path.abspath(candidate)
             return discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(abs_path, **FFMPEG_LOCAL_OPTIONS),
-                volume=LOCAL_FILE_VOLUME,
+                volume=LOCAL_MP3_VOLUME,
             )
 
         # Search the folder tree for a matching file
@@ -77,7 +82,7 @@ class MusicCog(commands.Cog):
         if matched:
             return discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(matched, **FFMPEG_LOCAL_OPTIONS),
-                volume=LOCAL_FILE_VOLUME,
+                volume=LOCAL_MP3_VOLUME,
             )
 
         self.logger.warning("No local audio found for query: %s", query)
@@ -110,7 +115,10 @@ class MusicCog(commands.Cog):
                 mp3_filename = base + '.mp3'
 
                 if os.path.exists(mp3_filename):
-                    return discord.FFmpegPCMAudio(mp3_filename)
+                    return discord.PCMVolumeTransformer(
+                        discord.FFmpegPCMAudio(mp3_filename),
+                        volume=YOUTUBE_VOLUME,
+                    )
                 else:
                     self.logger.error("Failed to download or convert the audio file from YouTube.")
                     return None

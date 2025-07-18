@@ -2,7 +2,7 @@ import discord
 import os
 import logging
 import asyncio
-from config import FFMPEG_LOCAL_OPTIONS, LOCAL_FILE_VOLUME
+from config import FFMPEG_LOCAL_OPTIONS, LOCAL_MP3_VOLUME
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class LocalSource:
 
         try:
             audio = discord.FFmpegPCMAudio(self.path, **FFMPEG_LOCAL_OPTIONS)
-            player = discord.PCMVolumeTransformer(audio, volume=LOCAL_FILE_VOLUME)
+            player = discord.PCMVolumeTransformer(audio, volume=LOCAL_MP3_VOLUME)
             logger.info(f"[LocalSource] Returning PCM transformer for: {self.path}")
             return player
         except Exception as e:

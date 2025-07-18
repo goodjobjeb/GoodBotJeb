@@ -1,13 +1,23 @@
 import os
 from discord.ext import commands
-from config import LOCAL_MP3_FOLDER
+import config
+from config import (
+    LOCAL_MP3_FOLDER,
+    MAX_VOLUME,
+    YOUTUBE_VOLUME,
+    LOCAL_MP3_VOLUME,
+    TTS_VOLUME,
+)
 from player.downloader import DownloadManager
 
 ALIASES = {
     'join': ['j'],
     'volume': ['v'],
     'listfiles': ['lf'],
-    'download': ['dl']
+    'download': ['dl'],
+    'ytvolume': ['ytv'],
+    'localmp3volume': ['lmp3v'],
+    'ttsvolume': ['ttsv'],
 }
 
 downloader = DownloadManager()
@@ -32,6 +42,23 @@ class UtilityCog(commands.Cog):
             await ctx.send(f"🔊 Volume set to {vol}")
         else:
             await ctx.send("⚠️ No audio source is playing.")
+
+    @commands.command(aliases=ALIASES['ytvolume'])
+    async def youtubevolume(self, ctx, vol: float):
+        config.YOUTUBE_VOLUME = min(vol, MAX_VOLUME)
+        config.DEFAULT_VOLUME = config.YOUTUBE_VOLUME
+        await ctx.send(f"🎵 YouTube volume set to {config.YOUTUBE_VOLUME}")
+
+    @commands.command(aliases=ALIASES['localmp3volume'])
+    async def localmp3volume(self, ctx, vol: float):
+        config.LOCAL_MP3_VOLUME = min(vol, MAX_VOLUME)
+        config.LOCAL_FILE_VOLUME = config.LOCAL_MP3_VOLUME
+        await ctx.send(f"📁 Local MP3 volume set to {config.LOCAL_MP3_VOLUME}")
+
+    @commands.command(aliases=ALIASES['ttsvolume'])
+    async def ttsvolume(self, ctx, vol: float):
+        config.TTS_VOLUME = min(vol, MAX_VOLUME)
+        await ctx.send(f"🗣️ TTS volume set to {config.TTS_VOLUME}")
 
     @commands.command(aliases=ALIASES['listfiles'])
     async def listfiles(self, ctx):
