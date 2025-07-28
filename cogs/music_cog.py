@@ -1,8 +1,9 @@
 import discord
 from discord.ext import commands
-import yt_dlp
 import os
+import asyncio
 import logging
+from yt_dlp import YoutubeDL
 from config import (
     LOCAL_MP3_FOLDER,
     FFMPEG_LOCAL_OPTIONS,
@@ -10,6 +11,7 @@ from config import (
     YOUTUBE_VOLUME,
 )
 from utils.audio import find_matching_audio
+from utils.format_fallback import get_best_audio_url, is_url
 
 ALIASES = {
     'play': ['p'],
@@ -20,111 +22,121 @@ class MusicCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.voice_client = None
+        self.queue = []
         self.logger = logging.getLogger(__name__)
 
     @commands.command(aliases=ALIASES['play'])
     async def play(self, ctx, *, query: str):
-        # Ensure the user is connected to a voice channel
         if not ctx.author.voice:
             await ctx.send("You must join a voice channel first.")
             return
-        
+
         channel = ctx.author.voice.channel
 
-        # Use the guild's existing voice client if present
         if ctx.voice_client:
             self.voice_client = ctx.voice_client
-            # Move to the user's channel if we're connected elsewhere
             if self.voice_client.channel != channel:
                 await self.voice_client.move_to(channel)
         else:
-            # No active connection, so connect
             self.voice_client = await channel.connect()
 
-        # Get audio from YouTube or local file
-        audio_source = await self.get_audio_source(query)
-        if audio_source:
-            try:
-                self.voice_client.play(
-                    audio_source,
-                    after=lambda e: self.logger.error("Playback error: %s", e) if e else None
-                )
-                await ctx.send(f"Now playing: {query}")
-            except Exception as e:
-                self.logger.error("Failed to play audio: %s", e)
-                await ctx.send("❌ Error during playback. Check logs for details.")
-        else:
+        sources = await self.get_audio_sources(query)
+        if not sources:
             await ctx.send("Failed to load the audio source.")
+            return
 
-    async def get_audio_source(self, query):
-        if query.startswith("http"):
-            return await self.get_youtube_audio_source(query)
+        for title, source in sources:
+            await self.enqueue_or_play(ctx, title, source)
 
-        # Direct file path provided
+    async def get_audio_sources(self, query):
         if os.path.isfile(query):
             abs_path = os.path.abspath(query)
-            return discord.PCMVolumeTransformer(
+            player = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(abs_path, **FFMPEG_LOCAL_OPTIONS),
                 volume=LOCAL_MP3_VOLUME,
             )
+            return [(os.path.basename(abs_path), player)]
 
-        # Try relative to configured folder
         candidate = os.path.join(LOCAL_MP3_FOLDER, query)
         if os.path.isfile(candidate):
             abs_path = os.path.abspath(candidate)
-            return discord.PCMVolumeTransformer(
+            player = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(abs_path, **FFMPEG_LOCAL_OPTIONS),
                 volume=LOCAL_MP3_VOLUME,
             )
+            return [(os.path.basename(abs_path), player)]
 
-        # Search the folder tree for a matching file
         matched = find_matching_audio(query)
         if matched:
-            return discord.PCMVolumeTransformer(
+            player = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(matched, **FFMPEG_LOCAL_OPTIONS),
                 volume=LOCAL_MP3_VOLUME,
             )
+            return [(os.path.basename(matched), player)]
 
-        self.logger.warning("No local audio found for query: %s", query)
-        return None
+        return await self.get_youtube_sources(query)
 
-    async def get_youtube_audio_source(self, url):
-        # Ensure the downloads directory exists
-        os.makedirs('downloads', exist_ok=True)
-
-        # Setup yt-dlp options
+    async def get_youtube_sources(self, query):
         ydl_opts = {
             'format': 'bestaudio/best',
-            'extractaudio': True,
-            'audioquality': 1,
-            'outtmpl': 'downloads/%(id)s.%(ext)s',
-            'quiet': False,  # Disable quiet mode
-            'logtostderr': True,  # Enable logging
-            'postprocessors': [{
-                'key': 'FFmpegExtractAudio',
-                'preferredcodec': 'mp3',
-                'preferredquality': '192',
-            }]
+            'quiet': True,
+            'noplaylist': False,
+            'default_search': 'auto',
         }
 
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            try:
-                info = ydl.extract_info(url, download=True)
-                filename = ydl.prepare_filename(info)
-                base, _ = os.path.splitext(filename)
-                mp3_filename = base + '.mp3'
+        with YoutubeDL(ydl_opts) as ydl:
+            target = query if is_url(query) else f"ytsearch1:{query}"
+            info = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: ydl.extract_info(target, download=False)
+            )
 
-                if os.path.exists(mp3_filename):
-                    return discord.PCMVolumeTransformer(
-                        discord.FFmpegPCMAudio(mp3_filename),
-                        volume=YOUTUBE_VOLUME,
-                    )
-                else:
-                    self.logger.error("Failed to download or convert the audio file from YouTube.")
-                    return None
+        entries = info.get('entries') or [info]
+        sources = []
+        for entry in entries:
+            if not entry:
+                continue
+            try:
+                url = get_best_audio_url(entry)
             except Exception as e:
-                self.logger.error("Error extracting YouTube audio: %s", e)
-                return None
+                self.logger.error("Unable to get audio URL: %s", e)
+                continue
+
+            player = discord.PCMVolumeTransformer(
+                discord.FFmpegPCMAudio(
+                    url,
+                    before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+                    options="-vn",
+                ),
+                volume=YOUTUBE_VOLUME,
+            )
+            title = entry.get('title', 'Unknown Title')
+            sources.append((title, player))
+
+        return sources
+
+    async def enqueue_or_play(self, ctx, title, source):
+        if self.voice_client.is_playing() or self.queue:
+            self.queue.append((title, source))
+            await ctx.send(f"Queued: {title}")
+        else:
+            self.start_playback(ctx, title, source)
+
+    def start_playback(self, ctx, title, source):
+        def after_play(error):
+            if error:
+                self.logger.error("Playback error: %s", error)
+            fut = self.play_next(ctx)
+            asyncio.run_coroutine_threadsafe(fut, self.bot.loop)
+
+        self.voice_client.play(source, after=after_play)
+        self.bot.loop.create_task(ctx.send(f"Now playing: {title}"))
+
+    async def play_next(self, ctx):
+        if self.queue:
+            title, source = self.queue.pop(0)
+            self.start_playback(ctx, title, source)
+        else:
+            await ctx.send("Queue is empty.")
 
     @commands.command(aliases=ALIASES['skip'])
     async def skip(self, ctx):
@@ -132,6 +144,9 @@ class MusicCog(commands.Cog):
         if vc and vc.is_playing():
             vc.stop()
             await ctx.send("⏭️ Skipped.")
+        elif self.queue:
+            await ctx.send("⏭️ Skipping to next track...")
+            await self.play_next(ctx)
         else:
             await ctx.send("Nothing is playing.")
 
@@ -143,6 +158,7 @@ class MusicCog(commands.Cog):
                 vc.stop()
             await vc.disconnect()
             await ctx.send("Music stopped and disconnected.")
+            self.queue.clear()
             self.voice_client = None
         else:
             await ctx.send("I'm not playing any music right now.")
