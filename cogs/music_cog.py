@@ -33,7 +33,7 @@ class MusicCog(commands.Cog):
 
         channel = ctx.author.voice.channel
 
-        if ctx.voice_client:
+        if ctx.voice_client and ctx.voice_client.is_connected():
             self.voice_client = ctx.voice_client
             if self.voice_client.channel != channel:
                 await self.voice_client.move_to(channel)
@@ -119,9 +119,16 @@ class MusicCog(commands.Cog):
             self.queue.append((title, source))
             await ctx.send(f"Queued: {title}")
         else:
-            self.start_playback(ctx, title, source)
+            await self.start_playback(ctx, title, source)
 
-    def start_playback(self, ctx, title, source):
+    async def start_playback(self, ctx, title, source):
+        if not self.voice_client or not self.voice_client.is_connected():
+            if ctx.author.voice:
+                self.voice_client = await ctx.author.voice.channel.connect()
+            else:
+                await ctx.send("I'm not connected to a voice channel.")
+                return
+
         def after_play(error):
             if error:
                 self.logger.error("Playback error: %s", error)
@@ -134,7 +141,7 @@ class MusicCog(commands.Cog):
     async def play_next(self, ctx):
         if self.queue:
             title, source = self.queue.pop(0)
-            self.start_playback(ctx, title, source)
+            await self.start_playback(ctx, title, source)
         else:
             await ctx.send("Queue is empty.")
 
