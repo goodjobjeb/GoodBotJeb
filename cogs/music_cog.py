@@ -122,7 +122,12 @@ class MusicCog(commands.Cog):
             await self.start_playback(ctx, title, source)
 
     async def start_playback(self, ctx, title, source):
-        if not self.voice_client or not self.voice_client.is_connected():
+        # Re-use an existing voice client if available instead of attempting
+        # to connect again which can raise ``ClientException`` when a previous
+        # connection is still being established.
+        self.voice_client = ctx.voice_client or self.voice_client
+
+        if not self.voice_client:
             if ctx.author.voice:
                 self.voice_client = await ctx.author.voice.channel.connect()
             else:
