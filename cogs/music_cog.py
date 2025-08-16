@@ -25,6 +25,35 @@ class MusicCog(commands.Cog):
         self.queue = []
         self.logger = logging.getLogger(__name__)
 
+    async def connect_with_retry(self, channel, retries: int = 3, delay: float = 1.0):
+        """Attempt to connect to a voice channel with retries.
+
+        This helps recover from intermittent ``ConnectionClosed`` errors where
+        the voice websocket closes with codes like 4006.
+
+        Parameters
+        ----------
+        channel: discord.VoiceChannel
+            The voice channel to connect to.
+        retries: int
+            Number of attempts before giving up.
+        delay: float
+            Seconds to wait between attempts.
+        """
+        last_exc = None
+        for attempt in range(1, retries + 1):
+            try:
+                return await channel.connect(reconnect=True)
+            except (discord.ClientException, discord.errors.ConnectionClosed, asyncio.TimeoutError) as exc:
+                last_exc = exc
+                self.logger.warning(
+                    "Voice connection failed (attempt %s/%s): %s", attempt, retries, exc
+                )
+                await asyncio.sleep(delay)
+        if last_exc:
+            raise last_exc
+        raise RuntimeError("Failed to connect to voice channel")
+
     @commands.command(aliases=ALIASES['play'])
     async def play(self, ctx, *, query: str):
         if not ctx.author.voice:
@@ -38,7 +67,12 @@ class MusicCog(commands.Cog):
             if self.voice_client.channel != channel:
                 await self.voice_client.move_to(channel)
         else:
-            self.voice_client = await channel.connect()
+            try:
+                self.voice_client = await self.connect_with_retry(channel)
+            except Exception as exc:
+                self.logger.error("Could not connect to voice channel: %s", exc)
+                await ctx.send("Failed to connect to the voice channel.")
+                return
 
         sources = await self.get_audio_sources(query)
         if not sources:
@@ -129,7 +163,12 @@ class MusicCog(commands.Cog):
 
         if not self.voice_client:
             if ctx.author.voice:
-                self.voice_client = await ctx.author.voice.channel.connect()
+                try:
+                    self.voice_client = await self.connect_with_retry(ctx.author.voice.channel)
+                except Exception as exc:
+                    self.logger.error("Could not connect to voice channel: %s", exc)
+                    await ctx.send("Failed to connect to the voice channel.")
+                    return
             else:
                 await ctx.send("I'm not connected to a voice channel.")
                 return
