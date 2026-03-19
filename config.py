@@ -26,6 +26,7 @@ LOCAL_MP3_FOLDER = "local_mp3_files"
 
 # FFmpeg options
 FFMPEG_OPTIONS = {
+    "before_options": "-allowed_extensions ALL",
     "options": "-vn"
 }
 
