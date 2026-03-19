@@ -155,8 +155,13 @@ class MusicCog(commands.Cog):
     async def get_audio_sources(self, ctx, query: str):
         """Resolve a query into a list of (title, player) tuples.
 
-        Checks local files first (instant), then falls back to YouTube.
+        URLs go straight to YouTube. Everything else checks local files
+        first (instant), then falls back to a YouTube search.
         """
+        # URLs skip local file matching entirely
+        if is_url(query):
+            return await self.get_youtube_sources(ctx, query)
+
         # Direct file path
         if os.path.isfile(query):
             return self._make_local_player(os.path.abspath(query))
@@ -171,6 +176,7 @@ class MusicCog(commands.Cog):
         if matched:
             return self._make_local_player(matched)
 
+        # Nothing local — treat as a YouTube search
         return await self.get_youtube_sources(ctx, query)
 
     def _make_local_player(self, path: str):
