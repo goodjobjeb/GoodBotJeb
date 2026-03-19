@@ -1,15 +1,15 @@
+import asyncio
 import logging
 import subprocess
+from concurrent.futures import ThreadPoolExecutor
 from yt_dlp import YoutubeDL
 import discord
 from utils.format_fallback import get_best_audio_url
 
-# Set up logging
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-handler = logging.StreamHandler()
-handler.setFormatter(logging.Formatter('%(asctime)s - %(levelname)s - %(message)s'))
-logger.addHandler(handler)
+
+_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="yt-src")
+
 
 class YouTubeSource:
     @classmethod
@@ -18,18 +18,25 @@ class YouTubeSource:
             'format': 'bestaudio/best',
             'noplaylist': False,
             'quiet': True,
+            'no_warnings': True,
             'extract_flat': False,
             'default_search': 'auto',
+            'socket_timeout': 10,
         }
 
-        try:
+        loop = asyncio.get_event_loop()
+
+        def _extract():
             with YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(query, download=False)
-                if 'entries' in info:
-                    return [cls(entry) for entry in info['entries'] if entry]
-                return [cls(info)]
+                return ydl.extract_info(query, download=False)
+
+        try:
+            info = await loop.run_in_executor(_executor, _extract)
+            if 'entries' in info:
+                return [cls(entry) for entry in info['entries'] if entry]
+            return [cls(info)]
         except Exception as e:
-            logger.error(f"Error extracting YouTube info: {e}")
+            logger.error("Error extracting YouTube info: %s", e)
             return None
 
     def __init__(self, info):
@@ -41,6 +48,6 @@ class YouTubeSource:
             source=self.url,
             executable="ffmpeg",
             stderr=subprocess.PIPE,
-            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+            before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -allowed_extensions ALL",
             options="-vn"
         )
