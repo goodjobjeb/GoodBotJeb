@@ -253,7 +253,7 @@ class MusicCog(commands.Cog):
             player = discord.PCMVolumeTransformer(
                 discord.FFmpegPCMAudio(
                     entry['url'],
-                    before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
+                    before_options="-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -allowed_extensions ALL",
                     options="-vn",
                 ),
                 volume=YOUTUBE_VOLUME,
