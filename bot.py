@@ -25,23 +25,13 @@ bot = commands.Bot(command_prefix=COMMAND_PREFIX, intents=intents)
 # Ensure the local file folder exists for playback and downloads
 os.makedirs(LOCAL_MP3_FOLDER, exist_ok=True)
 
+
 @bot.event
 async def on_ready():
     logging.info("%s has connected to Discord!", bot.user.name)
-    # Optionally, list out the available commands
     for command in bot.commands:
         logging.debug("Command available: %s", command.name)
 
-@bot.event
-async def on_error(event, *args, **kwargs):
-    """
-    Custom error handler to catch errors and attempt reconnection.
-    """
-    logging.error("An error occurred: %s, %s, %s", event, args, kwargs)
-    if isinstance(event, discord.errors.ConnectionClosed):
-        logging.info("Connection closed, attempting to reconnect...")
-        await bot.close()
-        await bot.start(TOKEN)  # Reconnect to Discord
 
 @bot.event
 async def on_message(message):
@@ -61,6 +51,7 @@ async def on_message(message):
 
     await bot.process_commands(message)
 
+
 # Load cogs asynchronously
 INITIAL_EXTENSIONS = [
     "cogs.music_cog",
@@ -69,9 +60,9 @@ INITIAL_EXTENSIONS = [
     "cogs.utility_cog"
 ]
 
+
 async def main():
     async with bot:
-        # Attempt to load extensions
         for ext in INITIAL_EXTENSIONS:
             logging.info("Loading extension: %s", ext)
             try:
@@ -82,10 +73,6 @@ async def main():
 
         await bot.start(TOKEN)
 
+
 if __name__ == "__main__":
-    # Ensure that the bot attempts to reconnect if connection closes
-    try:
-        asyncio.run(main())
-    except discord.errors.ConnectionClosed as e:
-        logging.error("Connection closed: %s, attempting to reconnect...", e)
-        asyncio.run(main())
+    asyncio.run(main())

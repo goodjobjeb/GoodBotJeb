@@ -1,6 +1,22 @@
+import os
+
+def _load_token():
+    """Load Discord token from environment variable or token.txt file."""
+    token = os.environ.get("DISCORD_BOT_TOKEN")
+    if token:
+        return token
+    token_path = os.path.join(os.path.dirname(__file__), "token.txt")
+    if os.path.exists(token_path):
+        with open(token_path) as f:
+            token = f.read().strip()
+            if token:
+                return token
+    return "DISCORD_BOT_TOKEN"
+
+
 # Discord & API tokens
-TOKEN = "DISCORD_BOT_TOKEN"
-ELEVEN_API_KEY = "EVELENLABS_API_KEY"
+TOKEN = _load_token()
+ELEVEN_API_KEY = os.environ.get("ELEVEN_API_KEY", "ELEVENLABS_API_KEY")
 OPEN_DOTA_URL = "https://api.opendota.com/api"
 
 COMMAND_PREFIX = "-"
